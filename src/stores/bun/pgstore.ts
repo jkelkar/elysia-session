@@ -52,9 +52,9 @@ export class BunPGStore implements Store {
   ): Promise<any> {
     let query;
     try {
-      await this.db.insert(this.xtable).values({ id: id, data: data });
+      return this.db.insert(this.xtable).values({ id: id, data: data });
     } catch (e) {
-      await this.db
+      return this.db
         .update(this.xtable)
         .set({ data: data, id: id })
         .where(eq(this.xtable.id, id));
@@ -63,7 +63,7 @@ export class BunPGStore implements Store {
 
   async deleteSession(id?: string | undefined, ctx?: Context): Promise<any> {
     if (!id) return;
-    await this.db.delete(this.xtable).where(eq(this.xtable.id, id));
+    return this.db.delete(this.xtable).where(eq(this.xtable.id, id));
   }
 
   async persistSession(
@@ -169,7 +169,7 @@ export class BunPGStore implements Store {
       | undefined
   ): Promise<any> {
     if (!id) return;
-    await this.db
+    return this.db
       .update(this.xtable)
       .set({ data: data })
       .where(eq(this.xtable.id, id));

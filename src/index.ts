@@ -24,7 +24,7 @@ export const sessionPlugin = (options: SessionOptions) => (app: Elysia) => {
       let createRequired = false;
 
       if (cookie) {
-        sid = cookie.value
+        sid = cookie.value;
         try {
           sessionData = await store.getSession(sid, ctx);
         } catch {
@@ -38,7 +38,6 @@ export const sessionPlugin = (options: SessionOptions) => (app: Elysia) => {
             session.reUpdate(options.expireAfter);
           } else {
             await store.deleteSession(sid, ctx);
-            cookie.remove();
             createRequired = true;
           }
         } else {
@@ -66,12 +65,11 @@ export const sessionPlugin = (options: SessionOptions) => (app: Elysia) => {
           ...options.cookieOptions,
         });
       }
-      sid = cookie.value
+
       await store.persistSession(session.getCache(), sid, ctx);
 
       if (session.getCache()._delete) {
         await store.deleteSession(sid, ctx);
-        cookie.remove()
       }
 
       return {
@@ -84,8 +82,8 @@ export const sessionPlugin = (options: SessionOptions) => (app: Elysia) => {
       const cookieName = options.cookieName || "session";
       const cookie = ctx.cookie[cookieName];
       let sid = "";
-      let sessionData;
-      let createRequired = false;
+      // let sessionData;
+      // let createRequired = false;
       if (cookie) {
         sid = cookie.value
         session.reUpdate(options.expireAfter);

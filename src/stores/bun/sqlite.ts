@@ -42,19 +42,19 @@ export class BunSQLiteStore implements Store {
       query = this.db.query(
         `INSERT INTO ${this.tableName} (id, data) VALUES ($id, $data)`
       );
-      await query.run({ $id: id, $data: JSON.stringify(data) });
+      return query.run({ $id: id, $data: JSON.stringify(data) });
     } catch (e) {
       query = this.db.query(
         `UPDATE ${this.tableName} SET data = $data WHERE id = $id`
       );
-      await query.run({ $id: id, $data: JSON.stringify(data) });
+      return query.run({ $id: id, $data: JSON.stringify(data) });
     }
   }
 
   async deleteSession(id?: string | undefined, ctx?: Context): Promise<any> { // void || Promise<void> {
     if (!id) return;
     const query = this.db.query(`DELETE FROM ${this.tableName} WHERE id = $id`);
-    await query.run({ $id: id });
+    return query.run({ $id: id });
   }
 
   async persistSession(
@@ -163,6 +163,6 @@ export class BunSQLiteStore implements Store {
     const query = this.db.query(
       `UPDATE ${this.tableName} SET data = $data WHERE id = $id`
     );
-    await query.run({ $id: id, $data: JSON.stringify(data) });
+    return query.run({ $id: id, $data: JSON.stringify(data) });
   }
 }
