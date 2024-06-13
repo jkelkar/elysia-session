@@ -54,6 +54,13 @@
       "node": "./dist/stores/bun/sqlite.js",
       "default": "./dist/stores/bun/sqlite.js",
       "types": "./dist/stores/bun/sqlite.d.ts"
+    },
+    "./stores/bun/pgstore": {
+      "require": "./dist/cjs/stores/bun/pgstore.js",
+      "import": "./dist/stores/bun/pgstore.js",
+      "node": "./dist/stores/bun/pgstore.js",
+      "default": "./dist/stores/bun/pgstore.js",
+      "types": "./dist/stores/bun/pgstore.d.ts"
     }
   },
   "types": "./src/index.ts",
@@ -71,6 +78,7 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "@types/pg": "^8.11.6",
     "@typescript-eslint/eslint-plugin": "^6.7.4",
     "@typescript-eslint/parser": "^6.7.4",
     "bun-types": "latest",
@@ -81,6 +89,7 @@
     "drizzle-orm": "^0.30.9",
     "iron-webcrypto": "^0.10.1",
     "nanoid": "^5.0.1",
+    "pg": "^8.12.0",
     "postgres": "^3.4.4",
     "typescript": "^5.4.5"
   }

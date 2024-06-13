@@ -105,6 +105,27 @@ new Elysia()
   })).get("/", () => 'Hi').listen(3000);
 ```
 
+#### Bun Postgres Store
+
+```ts
+import { sessionPlugin } from "elysia-session";
+import { BunPGStore } from "elysia-session/stores/bun/pgstore"
+// import { Database } from "bun:sqlite";
+import Elysia from "elysia";
+
+// const database = new Database(":memory:");
+
+// 2nd argument is the table name
+const store = new BunSQLiteStore(database, "sessions");
+
+new Elysia()
+  .use(sessionPlugin({
+    cookieName: "session", // Optional, default is "session"
+    store,
+    expireAfter: 15 * 60, // 15 minutes
+  })).get("/", () => 'Hi').listen(3000);
+```
+
 ## Community Stores
 
 <details>

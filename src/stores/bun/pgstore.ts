@@ -1,45 +1,50 @@
 import { Store } from "../../store";
 import { SessionData } from "../../session";
-// import { Database } from "bun:sqlite";
-import { Cookie } from "elysia";
-import { Context } from "elysia";
+import { Cookie, Context } from "elysia";
 
-import { drizzle } from "drizzle-orm/postgres-js";
-import {
-  pgTable,
-  serial,
-  text
-} from "drizzle-orm/pg-core";
-import { eq, lt, gte, ne, sql } from "drizzle-orm";
-import postgres from "postgres";
+import pg from 'pg'
+import { ConnectionParameters } from "postgres";
 
+interface Query {
+  text: string,
+  values?: any[]
+}
+// Client.query(qry: Query) -> Promise<Result>
 export class BunPGStore implements Store {
-  private connectionString: string;
-  private db: any;
+  private connectionString: ConnectionParameters;
   private tableName: string;
-  private xtable: any;
+  private pool: any;
 
-  constructor(cs: string, tableName: string) {
+  constructor(cs: ConnectionParameters, tableName: string) {
     this.connectionString = cs;
-    const queryClient = postgres(this.connectionString);
-    this.db = drizzle(queryClient);
+    let PGPool = pg.Pool
+    this.pool = new PGPool(this.connectionString)
     this.tableName = tableName;
-    this.xtable = pgTable(tableName, {
-      id: serial("id").primaryKey(),
-      data: text("data"),
-    });
-    this.db.execute(
-      sql`CREATE TABLE IF NOT EXISTS ${this.tableName} (id TEXT PRIMARY KEY, data TEXT)`
-    );
+    this.init()
+    // let stmt = `CREATE TABLE IF NOT EXISTS ${this.tableName} (id varchar() PRIMARY KEY, data TEXT)`;
+    // console.log("Statement:", stmt);
+    // // this.db.execute(stmt)
+  }
+
+  async init () {
+    let stmt = `CREATE TABLE IF NOT EXISTS ${this.tableName} (id varchar() PRIMARY KEY, data TEXT)`;
+    console.log("Statement:", stmt);
+    // this.db.execute(stmt);
+    // await this.sql`${stmt}`
+  }
+
+  async run (qry: Query) {
+    return this.pool.query(qry.text, qry.values)
   }
 
   async getSession(id?: string | undefined, ctx?: Context): Promise<any> {
     if (!id) return null;
-    const result = await this.db
-      .select()
-      .from(this.xtable)
-      .where(eq(this.xtable.id, id));
-
+    let qry : Query = {
+      text: `select * from ${this.tableName} where id=$1`,
+      values: [id]
+    }
+    console.log('getSession:', qry)
+    let result = await this.run(qry)
     if (!result) return null;
     // @ts -expect -errorx - data property is not defined in type
     return JSON.parse(result.data) as SessionData;
@@ -50,20 +55,34 @@ export class BunPGStore implements Store {
     id: string,
     ctx?: Context
   ): Promise<any> {
-    let query;
+    let qry: Query;
     try {
-      return this.db.insert(this.xtable).values({ id: id, data: data });
+      qry = {
+        text: `insert into ${this.tableName} (id, data) VALUES ($1, $2)`,
+        values: [id, data]
+      }
+      console.log('createSession1:', qry)
+      return this.run(qry) // this.sql`${query}`;
     } catch (e) {
-      return this.db
-        .update(this.xtable)
-        .set({ data: data, id: id })
-        .where(eq(this.xtable.id, id));
+      qry = {
+        text: `update ${this.tableName} set data=${data} where id=${id}`,
+        values: [id]
+      }
+      console.log("createSession2:", qry);
+      // return this.sql`${query}`;
+      return this.run(qry)
     }
   }
 
   async deleteSession(id?: string | undefined, ctx?: Context): Promise<any> {
     if (!id) return;
-    return this.db.delete(this.xtable).where(eq(this.xtable.id, id));
+    let qry: Query;
+    qry = {
+      text: `delete from ${this.tableName} where id=$1`,
+      values: [id]
+    }
+    console.log('deleteSession:', qry)
+    return this.run(qry) // sql`${query}`
   }
 
   async persistSession(
@@ -169,9 +188,12 @@ export class BunPGStore implements Store {
       | undefined
   ): Promise<any> {
     if (!id) return;
-    return this.db
-      .update(this.xtable)
-      .set({ data: data })
-      .where(eq(this.xtable.id, id));
+    let qry: Query;
+    qry = {
+      text: `update ${this.tableName} set data=$1 where id=$2`,
+      values: [data, id]
+    }
+    console.log('persistSession:', qry)
+    return this.run(qry)  // sql`${query}`;
   }
 }

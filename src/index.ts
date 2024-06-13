@@ -25,6 +25,9 @@ export const sessionPlugin = (options: SessionOptions) => (app: Elysia) => {
 
       if (cookie) {
         sid = cookie.value;
+        // cookie.set({
+        //   ...options.cookieOptions,
+        // });
         try {
           sessionData = await store.getSession(sid, ctx);
         } catch {
@@ -86,6 +89,9 @@ export const sessionPlugin = (options: SessionOptions) => (app: Elysia) => {
       // let createRequired = false;
       if (cookie) {
         sid = cookie.value
+        // cookie.set({
+        //   ...options.cookieOptions,
+        // });
         session.reUpdate(options.expireAfter);
         await store.persistSession(session.getCache(), sid, ctx);
       }
