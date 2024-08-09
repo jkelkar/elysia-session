@@ -15,13 +15,14 @@ export interface SessionOptions {
 export const sessionPlugin = (options: SessionOptions) => (app: Elysia) => {
   return app
     .derive(async (ctx) => {
-      const store = options.store;
-      const session = new Session();
-      const cookieName = options.cookieName || "session";
-      const cookie = ctx.cookie[cookieName];
-      let sid: string = "";
-      let sessionData: SessionData | null | undefined;
-      let createRequired = false;
+      const store = options.store
+      const session = new Session()
+      const cookieName = options.cookieName || "session"
+      const cookie = ctx.cookie[cookieName]
+      let sid: string = ""
+      let sessionData: SessionData | null | undefined
+      let sd: any  // SessionData 
+      let createRequired = false
 
       if (cookie) {
         sid = cookie.value;
@@ -29,7 +30,11 @@ export const sessionPlugin = (options: SessionOptions) => (app: Elysia) => {
         //   ...options.cookieOptions,
         // });
         try {
-          sessionData = await store.getSession(sid, ctx);
+          sd = (await store.getSession(sid, ctx)) as SessionData;
+          // console.log('sd:', sd)
+          // @ts -expect -errorx - data property is not defined in type
+          sessionData = JSON.parse(sd[0].data);
+          // console.log('sessionData:', sessionData)
         } catch {
           createRequired = true;
         }

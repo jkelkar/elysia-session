@@ -2,12 +2,12 @@ import { Store } from "../../store";
 import { SessionData } from "../../session";
 import { Cookie, Context } from "elysia";
 
-import pg from 'pg'
+import pg, { QueryArrayResult } from "pg";
 import { ConnectionParameters } from "postgres";
 
 interface Query {
-  text: string,
-  values?: any[]
+  text: string;
+  values?: any[];
 }
 // Client.query(qry: Query) -> Promise<Result>
 export class BunPGStore implements Store {
@@ -17,37 +17,46 @@ export class BunPGStore implements Store {
 
   constructor(cs: ConnectionParameters, tableName: string) {
     this.connectionString = cs;
-    let PGPool = pg.Pool
-    this.pool = new PGPool(this.connectionString)
+    let PGPool = pg.Pool;
+    this.pool = new PGPool(this.connectionString);
     this.tableName = tableName;
-    this.init()
+    this.init();
     // let stmt = `CREATE TABLE IF NOT EXISTS ${this.tableName} (id varchar() PRIMARY KEY, data TEXT)`;
     // console.log("Statement:", stmt);
     // // this.db.execute(stmt)
   }
 
-  async init () {
+  async init() {
     let stmt = `CREATE TABLE IF NOT EXISTS ${this.tableName} (id varchar() PRIMARY KEY, data TEXT)`;
-    console.log("Statement:", stmt);
+    // console.log("Statement:", stmt);
     // this.db.execute(stmt);
     // await this.sql`${stmt}`
   }
 
-  async run (qry: Query) {
-    return this.pool.query(qry.text, qry.values)
+  async run(qry: Query) {
+    return this.pool
+      .query(qry.text, qry.values)
+      .then((res: QueryArrayResult) => {
+        // console.log('user:', res.rows[0])
+        return res.rows;
+      })
+      .catch((e: Error) => {
+        console.log(e.stack);
+      });
   }
 
   async getSession(id?: string | undefined, ctx?: Context): Promise<any> {
     if (!id) return null;
-    let qry : Query = {
+    let qry: Query = {
       text: `select * from ${this.tableName} where id=$1`,
       values: [id]
     }
-    console.log('getSession:', qry)
-    let result = await this.run(qry)
-    if (!result) return null;
-    // @ts -expect -errorx - data property is not defined in type
-    return JSON.parse(result.data) as SessionData;
+    // console.log("getSession:", qry)
+    // let result = await 
+    return this.run(qry)
+    // if (!result) return null;
+    // // @ts -expect -errorx - data property is not defined in type
+    // return JSON.parse(result[0].data) as SessionData;
   }
 
   async createSession(
@@ -56,21 +65,29 @@ export class BunPGStore implements Store {
     ctx?: Context
   ): Promise<any> {
     let qry: Query;
-    try {
+
+    qry = {
+      text: `select * from ${this.tableName} where id=$1`,
+      values: [id],
+    };
+    // console.log("createSession1 TEST:", qry);
+    let out = await this.run(qry);
+    // console.log("out:", out);
+    if (out.length === 0) {
       qry = {
         text: `insert into ${this.tableName} (id, data) VALUES ($1, $2)`,
-        values: [id, data]
-      }
-      console.log('createSession1:', qry)
-      return this.run(qry) // this.sql`${query}`;
-    } catch (e) {
+        values: [id, data],
+      };
+      // console.log("createSession1:", qry);
+      return this.run(qry); // this.sql`${query}`;
+    } else {
       qry = {
-        text: `update ${this.tableName} set data=${data} where id=${id}`,
-        values: [id]
-      }
-      console.log("createSession2:", qry);
+        text: `update ${this.tableName} set data=$1 where id=$2`,
+        values: [data, id],
+      };
+      // console.log("createSession2:", qry);
       // return this.sql`${query}`;
-      return this.run(qry)
+      return this.run(qry);
     }
   }
 
@@ -79,10 +96,10 @@ export class BunPGStore implements Store {
     let qry: Query;
     qry = {
       text: `delete from ${this.tableName} where id=$1`,
-      values: [id]
-    }
-    console.log('deleteSession:', qry)
-    return this.run(qry) // sql`${query}`
+      values: [id],
+    };
+    // console.log("deleteSession:", qry);
+    return this.run(qry); // sql`${query}`
   }
 
   async persistSession(
@@ -191,9 +208,9 @@ export class BunPGStore implements Store {
     let qry: Query;
     qry = {
       text: `update ${this.tableName} set data=$1 where id=$2`,
-      values: [data, id]
-    }
-    console.log('persistSession:', qry)
-    return this.run(qry)  // sql`${query}`;
+      values: [data, id],
+    };
+    // console.log("persistSession:", qry);
+    return this.run(qry);
   }
 }
