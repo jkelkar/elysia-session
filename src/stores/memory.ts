@@ -12,7 +12,7 @@ export class MemoryStore implements Store {
         return this.sessions.has(id) ? this.sessions.get(id) : null;
     }
 
-    createSession(data: SessionData, id: string): void | Promise<void> {
+    createSession(id: string, data: SessionData): void | Promise<void> {
         this.sessions.set(id, data);
     }
 
@@ -20,7 +20,15 @@ export class MemoryStore implements Store {
         this.sessions.delete(id);
     }
 
-    persistSession(data: SessionData, id: string): void | Promise<void> {
+    persistSession(id: string, data: SessionData): void | Promise<void> {
         this.sessions.set(id, data);
+    }
+
+    deleteExpiredSessions(ts: string | null | undefined): Promise<void> | void {
+        
+    }
+
+    deleteUserSessions(userid?: number | null, username?: string | null): Promise<void> | void {
+        
     }
 }

@@ -1,61 +1,84 @@
+
+/*
+  This is the enhanced version of session where all sessions for a particular user can be removed at once.
+  This also allows deleting sessions where they have expired.
+*/
+
+export interface SessionPayload {
+  [key:string]: any 
+}
+
 export interface SessionData {
-  _data: Record<string, unknown>; 
-  _expire: string | null;
-  _delete: boolean;
-  _accessed: string | null;
+  data: SessionPayload,
+  username: string,
+  userid: number,
+  expire: string,
+  // delete: boolean,
+  // accessed: string
 }
 
 export class Session {
   private _cache: SessionData;
+
   constructor() {
     this._cache = {
-      _data: {},
-      _expire: null,
-      _delete: false,
-      _accessed: null,
+      data: {},
+      username: '',
+      userid: 0,
+      expire: '',
+      // delete: false,
+      // accessed: '',
     };
   }
 
-  setCache(cache: SessionData) {
-    this._cache = cache;
-    for (const prop in this._cache._data) {
-      (<any>this)[prop] = this._cache._data[prop];
+  loadCache(cache: SessionData|undefined) {
+    if (cache) {
+      this._cache = cache
     }
   }
 
+  setCache(cache: SessionPayload, userid?: number, username?: string) {
+    this._cache.data = cache;
+    this._cache.username = username || ''
+    this._cache.userid = userid || 0
+  }
+
   getCache(): SessionData {
-    for (const prop in this) {
-      if (prop !== "_cache" && typeof (<any>this)[prop] !== "function") {
-        this._cache._data[prop] = (<any>this)[prop];
-      }
-    }
     return this._cache;
   }
 
   setExpire(expiration: string) {
-    this._cache._expire = expiration;
+    this._cache.expire = expiration;
   }
 
-  reUpdate(expiration?: number | null) {
-    if (expiration)
-      this.setExpire(new Date(Date.now() + expiration * 1000).toISOString());
+  getExpiry(expirationSecs: number) : string | null | undefined{
+    let ts : string
+     if (expirationSecs) {
+       ts =  new Date(Date.now() + expirationSecs * 1000).toISOString()
+     } else {
+      ts = new Date(Date.now()).toISOString();
+     }
+     return ts
   }
 
-  delete() {
-    this._cache._delete = true;
+  reUpdate(expirationSecs: number | null) {
+    if (expirationSecs)
+      this.setExpire(new Date(Date.now() + expirationSecs * 1000).toISOString());
   }
 
   valid() {
     return (
-      this._cache._expire === null ||
-      new Date(this._cache._expire).getTime() > Date.now()
+      this._cache.expire === null ||
+      new Date(this._cache.expire).getTime() > Date.now()
     );
   }
 
-  updateAccessed() {
-    this._cache._accessed = new Date().toISOString();
-  }
+  // updateAccessed() {
+  //   this._cache.accessed = new Date().toISOString();
+  // }
 
+  /*
+  // why dont we just expose _data as session??
   get(key: string) {
     const entry = this._cache._data[key];
     if (!entry) return null;
@@ -66,4 +89,5 @@ export class Session {
   set(key: string, value: unknown) {
     this._cache._data[key] = value;
   }
+    */
 }

@@ -1,5 +1,5 @@
 import { Store } from "../../store";
-import { SessionData } from "../../session";
+import { SessionData, SessionPayload } from "../../session";
 import { Database } from "bun:sqlite";
 import { Cookie } from "elysia";
 import { Context } from "elysia";
@@ -13,53 +13,110 @@ export class BunSQLiteStore implements Store {
     this.tableName = tableName;
     this.db
       .query(
-        `CREATE TABLE IF NOT EXISTS ${this.tableName} (id TEXT PRIMARY KEY, data TEXT)`
+        `CREATE TABLE IF NOT EXISTS ${this.tableName} 
+        (id varchar(40) PRIMARY KEY, expire varchar(40), userid integer, username varchar(30), data text)`
+        // Sqlite does not have a native JSON data type, we need to use data type text and
+        //   then use json_extract to convert from text to js data
       )
       .run();
   }
 
-  async getSession(
-    id?: string | undefined,
-    ctx?: Context
-  ): Promise<any> { // SessionData | Promise<SessionData | null | undefined> | null | undefined {
-    if (!id) return null;
-    const query = this.db.query(
-      `SELECT data FROM ${this.tableName} WHERE id = $id`
-    );
-    const result = await query.get({ $id: id });
-    if (!result) return null;
-    // @ts-expect-error - data property is not defined in type
-    return JSON.parse(result.data) as SessionData;
+  /*
+  // convert from text to JS data
+  textToJS(text: SessionData): SessionData {
+    text.data = 
   }
 
-  async createSession(
-    data: SessionData,
-    id: string,
-    ctx?: Context
-  ): Promise<any> { // void | Promise<void> {
-    let query
-    try {
-      query = this.db.query(
-        `INSERT INTO ${this.tableName} (id, data) VALUES ($id, $data)`
-      );
-      return query.run({ $id: id, $data: JSON.stringify(data) });
-    } catch (e) {
-      query = this.db.query(
-        `UPDATE ${this.tableName} SET data = $data WHERE id = $id`
-      );
-      return query.run({ $id: id, $data: JSON.stringify(data) });
+  JSToText(sess: SessionData) {}
+  */
+
+  async getSession(id?: string | undefined, ctx?: Context): Promise<any> {
+    // SessionData | Promise<SessionData | null | undefined> | null | undefined {
+    if (!id) return null;
+    const query = this.db.query(
+      `SELECT id, expire, userid, username, data FROM ${this.tableName} WHERE id = $id`
+    );
+    const result = await query.get({ $id: id });
+    if (!result) {
+      return null;
+    } else {
+      return {
+        result,
+      };
     }
   }
 
-  async deleteSession(id?: string | undefined, ctx?: Context): Promise<any> { // void || Promise<void> {
+  async createSession(
+    id: string | undefined,
+    sess: SessionData,
+    ctx?: Context
+  ): Promise<any> {
+    // void | Promise<void> {
+    let query;
+    if (!id) {
+      throw new Error("Parameter has no value");
+    }
+    try {
+      query = this.db.query(
+        `INSERT INTO ${this.tableName} (id, expire, userid, username, data) VALUES ($id, $expire, $userid, $username, $data)`
+      );
+      return query.run({
+        $id: id,
+        $expire: sess.expire,
+        $userid: sess.userid,
+        $username: sess.username,
+        $data: JSON.stringify(sess.data),
+      });
+    } catch (e) {
+      query = this.db.query(
+        `UPDATE ${this.tableName} SET data = $data, expire = $expire WHERE id = $id`
+      );
+      return query.run({
+        $id: id,
+        $expire: sess.expire,
+        $data: JSON.stringify(sess.data),
+      });
+    }
+  }
+
+  async deleteSession(id?: string | undefined): Promise<any> {
+    // void || Promise<void> {
     if (!id) return;
     const query = this.db.query(`DELETE FROM ${this.tableName} WHERE id = $id`);
     return query.run({ $id: id });
   }
 
+  async deleteExpiredSessions(ts: string | null | undefined): Promise<any> {
+    if (ts) {
+      const query = this.db.query(
+        `delete from ${this.tableName} where expire <= $ts`
+      );
+      return query.run({ $ts: ts });
+      // console.log("deleteSession:", qry);
+    }
+  }
+
+  async deleteUserSessions(
+    userid?: number | null,
+    username?: string | null
+  ): Promise<any> {
+    let query;
+    if (userid && userid > 0) {
+      query = this.db.query(
+        `delete from ${this.tableName} where userid = $userid`
+      );
+      return query.run({ $userid: userid });
+    } else if (username && username.length) {
+      query = this.db.query(
+        `delete from ${this.tableName} where username = $username`
+      );
+      return query.run({ $username: username });
+    }
+  }
   async persistSession(
-    data: SessionData,
-    id?: string | undefined,
+    id: string | undefined,
+    sess: SessionData
+    /*
     ctx?:
       | {
           body: unknown;
@@ -158,11 +215,17 @@ export class BunSQLiteStore implements Store {
           store: {};
         }
       | undefined
-  ): Promise<any> { // void | Promise<void> {
+      */
+  ): Promise<any> {
+    // void | Promise<void> {
     if (!id) return;
     const query = this.db.query(
-      `UPDATE ${this.tableName} SET data = $data WHERE id = $id`
+      `UPDATE ${this.tableName} SET data = $data, expire = $expire WHERE id = $id`
     );
-    return query.run({ $id: id, $data: JSON.stringify(data) });
+    return query.run({
+      $id: id,
+      $expire: sess.expire,
+      $data: JSON.stringify(sess.data),
+    });
   }
 }

@@ -1,9 +1,9 @@
 import type Elysia from "elysia";
 import { Store } from "./store";
-import { Session, SessionData } from "./session";
+import { Session, SessionData, SessionPayload } from "./session";
 import { nanoid } from "nanoid";
 import { CookieStore } from "./stores/cookie";
-import { CookieOptions } from "elysia/dist/cookie";
+import { CookieOptions } from "elysia/dist/cookies";
 
 export interface SessionOptions {
   store: Store;
@@ -12,17 +12,28 @@ export interface SessionOptions {
   cookieOptions?: CookieOptions;
 }
 
+ const initialData : SessionData= {
+          data : {},
+          expire: '',
+          userid: 0,
+          username: '',
+        };
+
 export const sessionPlugin = (options: SessionOptions) => (app: Elysia) => {
   return app
     .derive(async (ctx) => {
       const store = options.store
-      const session = new Session()
+      const sess = new Session()
       const cookieName = options.cookieName || "session"
       const cookie = ctx.cookie[cookieName]
-      let sid: string = ""
-      let sessionData: SessionData | null | undefined
-      let sd: any  // SessionData 
+      let sid: string | undefined= ''
+      let session: SessionData | undefined | null
+      let sd: SessionData | null |undefined
       let createRequired = false
+
+      // first clear all expired sessions
+      const expireTS: string|null |undefined = sess.getExpiry(options.expireAfter)
+      await store.deleteExpiredSessions(expireTS)
 
       if (cookie) {
         sid = cookie.value;
@@ -30,22 +41,27 @@ export const sessionPlugin = (options: SessionOptions) => (app: Elysia) => {
         //   ...options.cookieOptions,
         // });
         try {
-          sd = (await store.getSession(sid, ctx)) as SessionData;
+          sd = await store.getSession(sid) // as SessionData;
           // console.log('sd:', sd)
-          // @ts -expect -errorx - data property is not defined in type
-          sessionData = JSON.parse(sd[0].data);
-          // console.log('sessionData:', sessionData)
+          if (sd) {
+            session = sd
+          } else {
+            createRequired = true
+          }
+          // session = JSON.parse(sd[0]) // .data);
+          // console.log('session:', session)
         } catch {
           createRequired = true;
         }
 
-        if (sessionData) {
-          session.setCache(sessionData);
+        if (session != undefined) {
+          // can also save userid and username - if we want to handle all sessions for a user, mainly for deletion
+          sess.setCache(session);
 
-          if (session.valid()) {
-            session.reUpdate(options.expireAfter);
+          if (sess.valid()) {
+            sess.reUpdate(options.expireAfter);
           } else {
-            await store.deleteSession(sid, ctx);
+            await store.deleteSession(sid);
             createRequired = true;
           }
         } else {
@@ -56,15 +72,18 @@ export const sessionPlugin = (options: SessionOptions) => (app: Elysia) => {
       }
 
       if (createRequired) {
-        const initialData = {
-          _data: {},
-          _expire: null,
-          _delete: false,
-          _accessed: null,
-        };
+        // const initialData : SessionData= {
+        //   data: {},
+        //   expire: '',
+        //   userid: 0,
+        //   username: '',
+        //   // delete: false,
+        //   // accessed: ''
+        // };
         sid = cookie.value || nanoid(24);
-        await store.createSession(initialData, sid, ctx);
-        session.setCache(initialData);
+        await store.createSession(sid, initialData);
+        sess.setCache(initialData);
+        session = initialData
       }
 
       if (!(store instanceof CookieStore)) {
@@ -74,31 +93,28 @@ export const sessionPlugin = (options: SessionOptions) => (app: Elysia) => {
         });
       }
 
-      await store.persistSession(session.getCache(), sid, ctx);
+      await store.persistSession(sid, sess.getCache());
+      session = await store.getSession(sid)
 
-      if (session.getCache()._delete) {
-        await store.deleteSession(sid, ctx);
+      if (!session) {
+        session = initialData
+
+        return {
+          session: session
+        }
       }
-
-      return {
-        session,
-      };
     })
-    .onResponse(async (ctx) => {
+    .onAfterResponse(async (ctx) => {
       const store = options.store;
-      const session = ctx.session;
+      const sess = new Session() // ctx.session;
       const cookieName = options.cookieName || "session";
       const cookie = ctx.cookie[cookieName];
-      let sid = "";
-      // let sessionData;
-      // let createRequired = false;
+      let sid :any= "";
+      sess.loadCache(ctx.session)
       if (cookie) {
         sid = cookie.value
-        // cookie.set({
-        //   ...options.cookieOptions,
-        // });
-        session.reUpdate(options.expireAfter);
-        await store.persistSession(session.getCache(), sid, ctx);
+        sess.reUpdate(options.expireAfter);
+        await store.persistSession(sid, sess.getCache());
       }
     });
 };
