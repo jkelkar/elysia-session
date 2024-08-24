@@ -1,8 +1,15 @@
 import { Store } from "../../store";
 import { SessionData, SessionPayload } from "../../session";
 import { Database } from "bun:sqlite";
-import { Cookie } from "elysia";
-import { Context } from "elysia";
+
+
+export interface SqliteData {
+  id: string,
+  data: SessionPayload,
+  username: string,
+  userid: number,
+  expire: string
+}
 
 export class BunSQLiteStore implements Store {
   private db: Database;
@@ -14,24 +21,13 @@ export class BunSQLiteStore implements Store {
     this.db
       .query(
         `CREATE TABLE IF NOT EXISTS ${this.tableName} 
-        (id varchar(40) PRIMARY KEY, expire varchar(40), userid integer, username varchar(30), data text)`
-        // Sqlite does not have a native JSON data type, we need to use data type text and
-        //   then use json_extract to convert from text to js data
+          (id varchar(40) PRIMARY KEY, expire varchar(40), userid integer, username varchar(30), data text)`
+        // Sqlite does not have a native JSON data type, we need to use data type text
       )
       .run();
   }
 
-  /*
-  // convert from text to JS data
-  textToJS(text: SessionData): SessionData {
-    text.data = 
-  }
-
-  JSToText(sess: SessionData) {}
-  */
-
-  async getSession(id?: string | undefined, ctx?: Context): Promise<any> {
-    // SessionData | Promise<SessionData | null | undefined> | null | undefined {
+  async getSession(id: string | undefined): Promise<any> {
     if (!id) return null;
     const query = this.db.query(
       `SELECT id, expire, userid, username, data FROM ${this.tableName} WHERE id = $id`
@@ -40,18 +36,16 @@ export class BunSQLiteStore implements Store {
     if (!result) {
       return null;
     } else {
-      return {
-        result,
-      };
-    }
+      // @ts-expect-error - data property is not defined in type
+      result.data = JSON.parse(result.data);
+      return result;
+    } 
   }
 
   async createSession(
     id: string | undefined,
-    sess: SessionData,
-    ctx?: Context
+    sess: SessionData
   ): Promise<any> {
-    // void | Promise<void> {
     let query;
     if (!id) {
       throw new Error("Parameter has no value");
@@ -80,7 +74,6 @@ export class BunSQLiteStore implements Store {
   }
 
   async deleteSession(id?: string | undefined): Promise<any> {
-    // void || Promise<void> {
     if (!id) return;
     const query = this.db.query(`DELETE FROM ${this.tableName} WHERE id = $id`);
     return query.run({ $id: id });
@@ -88,11 +81,8 @@ export class BunSQLiteStore implements Store {
 
   async deleteExpiredSessions(ts: string | null | undefined): Promise<any> {
     if (ts) {
-      const query = this.db.query(
-        `delete from ${this.tableName} where expire <= $ts`
-      );
+      const query = this.db.query(`delete from ${this.tableName} where expire <= $ts`);
       return query.run({ $ts: ts });
-      // console.log("deleteSession:", qry);
     }
   }
 
@@ -113,6 +103,7 @@ export class BunSQLiteStore implements Store {
       return query.run({ $username: username });
     }
   }
+
   async persistSession(
     id: string | undefined,
     sess: SessionData

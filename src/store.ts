@@ -16,7 +16,7 @@ export interface Store {
     data: SessionData,
     ctx?: Context
   ): Promise<void> | void;
-  deleteSession(sid: string | undefined, ctx?: Context): Promise<void> | void;
+  deleteSession(id: string | undefined, ctx?: Context): Promise<void> | void;
   deleteExpiredSessions(ts: string | null | undefined): Promise<void> | void;
   deleteUserSessions(
     userid?: number | null,

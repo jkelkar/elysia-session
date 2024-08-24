@@ -49,7 +49,7 @@ export class BunPGStore implements Store {
 
   async init() {
     let stmt = `CREATE TABLE IF NOT EXISTS ${this.tableName} 
-    (id varchar(40) PRIMARY KEY, expire varchar(40), userid integer, username varchar(30), data json)`;
+      (id varchar(40) PRIMARY KEY, expire varchar(40), userid integer, username varchar(30), data json)`;
     console.log("Statement:", stmt);
     await this.run({ text: stmt });
   }
@@ -60,10 +60,11 @@ export class BunPGStore implements Store {
       text: `select * from ${this.tableName} where id=$1`,
       values: [id],
     };
-    // console.log("getSession:", qry)
+    console.log("getSession:", qry)
     // let result = await
     let cache = await this.run(qry);
-    if (cache.length > 0) return cache[0];
+    console.log('Cache:', cache)
+    if (cache && cache.length > 0) return cache[0];
     else return null;
   }
 
@@ -74,21 +75,21 @@ export class BunPGStore implements Store {
   ): Promise<any> {
     let qry: Query;
     let out = await this.getSession(id);
-    // console.log("out:", out);
-    if (out.length === 0) {
+    console.log("out:", out);
+    if (!(out && out.length === 0) ) {
       qry = {
         text: `insert into ${this.tableName} (id, expire, userid, username, data) VALUES ($1, $2, $3, $4, $5)`,
         values: [id, sess.expire, sess.userid, sess.username, sess.data],
       };
-      // console.log("createSession1:", qry);
+      console.log("createSession:", qry);
       return this.run(qry); // this.sql`${query}`;
     } else {
       // FIXME
       qry = {
-        text: `update ${this.tableName} set data=$1 , expire= $2, where id=$2`,
+        text: `update ${this.tableName} set data=$1, expire= $2, where id=$3`,
         values: [sess.data, sess.expire, id],
       };
-      // console.log("createSession2:", qry);
+      console.log("createSession2:", qry);
       // return this.sql`${query}`;
       return this.run(qry);
     }
@@ -102,7 +103,7 @@ export class BunPGStore implements Store {
       text: `delete from ${this.tableName} where id=$1`,
       values: [id],
     };
-    // console.log("deleteSession:", qry);
+    console.log("deleteSession:", qry);
     return this.run(qry); // sql`${query}`
   }
 
@@ -113,7 +114,7 @@ export class BunPGStore implements Store {
       text: `delete from ${this.tableName} where expire <= $1`,
       values: [ts],
     };
-    // console.log("deleteSession:", qry);
+    console.log("deleteSession:", qry);
     return this.run(qry); // sql`${query}`
   }
 

@@ -13,43 +13,37 @@ export interface SessionOptions {
 }
 
  const initialData : SessionData= {
-          data : {},
-          expire: '',
-          userid: 0,
-          username: '',
-        };
+    data : {},
+    expire: '',
+    userid: 0,
+    username: '',
+  };
 
 export const sessionPlugin = (options: SessionOptions) => (app: Elysia) => {
   return app
     .derive(async (ctx) => {
-      const store = options.store
-      const sess = new Session()
-      const cookieName = options.cookieName || "session"
-      const cookie = ctx.cookie[cookieName]
-      let sid: string | undefined= ''
-      let session: SessionData | undefined | null
-      let sd: SessionData | null |undefined
-      let createRequired = false
+      const store = options.store;
+      const sess = new Session();
+      const cookieName = options.cookieName || "session";
+      const cookie = ctx.cookie[cookieName];
+      let id: string | undefined= '';
+      let session: SessionData | undefined | null;
+      let sd: SessionData | null |undefined;
+      let createRequired = false;
 
       // first clear all expired sessions
-      const expireTS: string|null |undefined = sess.getExpiry(options.expireAfter)
-      await store.deleteExpiredSessions(expireTS)
+      const expireTS: string | null | undefined = sess.getExpiry();
+      await store.deleteExpiredSessions(expireTS);
 
       if (cookie) {
-        sid = cookie.value;
-        // cookie.set({
-        //   ...options.cookieOptions,
-        // });
+        id = cookie.value;
         try {
-          sd = await store.getSession(sid) // as SessionData;
-          // console.log('sd:', sd)
+          sd = await store.getSession(id) // as SessionData;
           if (sd) {
-            session = sd
+            session = sd;
           } else {
-            createRequired = true
+            createRequired = true;
           }
-          // session = JSON.parse(sd[0]) // .data);
-          // console.log('session:', session)
         } catch {
           createRequired = true;
         }
@@ -61,7 +55,7 @@ export const sessionPlugin = (options: SessionOptions) => (app: Elysia) => {
           if (sess.valid()) {
             sess.reUpdate(options.expireAfter);
           } else {
-            await store.deleteSession(sid);
+            await store.deleteSession(id);
             createRequired = true;
           }
         } else {
@@ -72,36 +66,28 @@ export const sessionPlugin = (options: SessionOptions) => (app: Elysia) => {
       }
 
       if (createRequired) {
-        // const initialData : SessionData= {
-        //   data: {},
-        //   expire: '',
-        //   userid: 0,
-        //   username: '',
-        //   // delete: false,
-        //   // accessed: ''
-        // };
-        sid = cookie.value || nanoid(24);
-        await store.createSession(sid, initialData);
+        id = cookie.value || nanoid(24);
+        await store.createSession(id, initialData);
         sess.setCache(initialData);
-        session = initialData
+        session = initialData;
       }
 
       if (!(store instanceof CookieStore)) {
         ctx.cookie[cookieName].set({
-          value: sid,
-          ...options.cookieOptions,
+          value: id,
+          ...options.cookieOptions
         });
       }
-
-      await store.persistSession(sid, sess.getCache());
-      session = await store.getSession(sid)
+      sess.reUpdate(options.expireAfter);
+      await store.persistSession(id, sess.getCache());
+      session = await store.getSession(id);
 
       if (!session) {
-        session = initialData
-
-        return {
-          session: session
-        }
+        session = initialData;
+      }
+      return {
+        sessionData: session,
+        session: session.data
       }
     })
     .onAfterResponse(async (ctx) => {
@@ -109,12 +95,12 @@ export const sessionPlugin = (options: SessionOptions) => (app: Elysia) => {
       const sess = new Session() // ctx.session;
       const cookieName = options.cookieName || "session";
       const cookie = ctx.cookie[cookieName];
-      let sid :any= "";
-      sess.loadCache(ctx.session)
+      let id :any= "";
+      sess.loadCache(ctx.sessionData, ctx.session)
       if (cookie) {
-        sid = cookie.value
+        id = cookie.value;
         sess.reUpdate(options.expireAfter);
-        await store.persistSession(sid, sess.getCache());
+        await store.persistSession(id, sess.getCache());
       }
     });
 };
