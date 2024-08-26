@@ -5,8 +5,8 @@
 ## Features
 
 - Runs in Bun, Cloudflare Workers, and those supported by Elysia.
-- Flash messages — data that is deleted once it's read (one-off error messages, etc.)
-- Built-in Memory, Bun SQLite and Cookie stores. 
+- Flash messages — data that is deleted once it's read (one-off error messages, etc.) - support removed
+- Built-in Memory, Bun SQLite, Bun postgres and Cookie stores. 
 
 ## Installation 
 
@@ -21,6 +21,7 @@ There are 3 stores in-built in this package:
 1. Memory Store
 2. Cookie Store
 3. Bun SQLite Store
+4. Bun postgres Store
 
 You can implement your own store by implementing the `Store` interface as shown below:
 
@@ -33,17 +34,23 @@ export class MyCustomStore implements Store {
   constructor() {
     // ...
   }
-  getSession(id?: string, ctx?: Context): SessionData | null | undefined | Promise<SessionData | null | undefined> {
+  getSession(id: string, ctx?: Context): SessionData | null | undefined | Promise<SessionData | null | undefined> {
     // ...
   }
-  createSession(data: SessionData, id?: string, ctx?: Context): Promise<void> | void {
+  createSession(id: string, data: SessionData, ctx?: Context): Promise<void> | void {
     // ...
   }
-  persistSession(data: SessionData, id?: string, ctx?: Context): Promise<void> | void {
+  persistSession(id: string, data: SessionData, ctx?: Context): Promise<void> | void {
     // ...
   }
-  deleteSession(id?: string, ctx?: Context): Promise<void> | void {
+  deleteSession(id: string, ctx?: Context): Promise<void> | void {
     // ...
+  }
+  deleteExpiredSessions(ts: string | null | undefined): Promise<void> | void {
+    // Used to clear stale sessions
+  }
+  deleteUserSessions(userid?: number | null, username?: string | null): Promise<void> | void {
+    // Delete all sessions for a user, if userid or username is inserted into the session table
   }
 }
 ```
@@ -97,12 +104,36 @@ const database = new Database(":memory:");
 // 2nd argument is the table name
 const store = new BunSQLiteStore(database, "sessions");
 
-new Elysia()
+let app = new Elysia()
   .use(sessionPlugin({
-    cookieName: "session", // Optional, default is "session"
+    cookieName: "session",  // this is the name of what is used as "session"
+    expireAfter: 15 * 60,   // session expiry time
+    cookieOptions: {
+      path: '/',
+      sameSite: true,
+      maxAge: 15 * 60 // 15 minutes
+    },
     store,
-    expireAfter: 15 * 60, // 15 minutes
-  })).get("/", () => 'Hi').listen(3000);
+  }))
+  .use(
+    cookie({
+      secret: 'Your choice of secret'
+    })
+  )
+  .get('/', ({session}) => {
+    console.log('session:', session)
+    console.log('/')
+    session.sample = {name: 'Jay'}
+    console.log('sess:', session)
+    return {data: session}
+  })
+  .get('/test1', ({session}) => {
+    console.log('session:', session)
+    console.log('/test1')
+    session.sample.lname = 'hello'
+    return {data: session}
+  })
+  .listen(3000)
 ```
 
 #### Bun Postgres Store
@@ -118,15 +149,39 @@ import Elysia from "elysia";
 // 2nd argument is the table name
 const store = new BunSQLiteStore(database, "sessions");
 
-new Elysia()
+let app = new Elysia()
   .use(sessionPlugin({
-    cookieName: "session", // Optional, default is "session"
+    cookieName: "session",
+    expireAfter: 15 * 60,
+    cookieOptions: {
+      path: '/',
+      sameSite: true,
+      maxAge: 15 * 60 // 15 minutes
+    },
     store,
-    expireAfter: 15 * 60, // 15 minutes
-  })).get("/", () => 'Hi').listen(3000);
+  }))
+  .use(
+    cookie({
+      secret: 'Longer than the longest plan'
+    })
+  )
+  .get('/', ({session}) => {
+    console.log('session:', session)
+    console.log('/')
+    session.sample = {name: 'Jay'}
+    console.log('sess:', session)
+    return { data: session }
+  })
+  .get('/test1', ({session}) => {
+    console.log('session:', session)
+    console.log('/test1')
+    session.sample.lname = 'hello'
+    return {data: session}
+  })
+  .listen(3000)
 ```
 
-## Community Stores
+## Community Stores -  This needs to be checked
 
 <details>
   <summary>Mongoose (@macnak)</summary>
@@ -202,11 +257,13 @@ export class MongooseStore implements Store {
 
 </details>
 
-### Flash Messages
+### Flash Messages - Removed
 
 Flash messages are one-off messages that are deleted once they are read. They are useful for displaying error messages, etc.
 
-### Session Data
+Instead of the earlier Flash, just track session.flash. 
+
+### Session Data - the memory store needs to be verified
 
 Using '/testsession', see how this can be used
 ```ts
@@ -249,4 +306,5 @@ MIT
 ## Author
 
 Copyright (c) 2023 Gaurish Sethia, All rights reserved.
-Updates 2024 Jay Kelkar
+
+Updates 2024 Jay Kelkar (jkelkar) - Rewamped code completely, added postgres store.

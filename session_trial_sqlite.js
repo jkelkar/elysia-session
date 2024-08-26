@@ -9,11 +9,6 @@ import {Database} from 'bun:sqlite'
 const database = new Database('order.sqlite')
 const store = new BunSQLiteStore(database, "sessions") // name of table in database
 
-// 
-const debug = 1
-let error
-let save = {}
-
 let app = new Elysia()
   .use(sessionPlugin({
     cookieName: "session",  // this is the name of what is used as "session"
